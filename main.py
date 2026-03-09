@@ -302,12 +302,6 @@ def run_pipeline(args):
     print("  PIPELINE COMPLETE")
     print("=" * 70)
     print(f"\n  Total time: {elapsed:.1f} seconds")
-    print(f"\n  Output directory: {output_dir}")
-    print(f"  ├── features/       Feature CSVs")
-    print(f"  ├── models/         Trained models (.pkl)")
-    print(f"  ├── plots/          Static plots (.png)")
-    print(f"  ├── edge/           Edge-exported models (.c, .py)")
-    print(f"  └── dashboard.html  Interactive dashboard")
 
     if cv_results:
         print(f"\n  Model Performance (LOSO CV):")
