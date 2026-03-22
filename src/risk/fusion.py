@@ -76,7 +76,7 @@ def compute_risk_batch(
     signal_quality_arr: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
-    Batch compute risk scores for arrays of predictions.
+    Batch compute risk scores for arrays of predictions (vectorized).
 
     Parameters
     ----------
@@ -94,16 +94,24 @@ def compute_risk_batch(
     np.ndarray
         Risk scores ∈ [0, 1].
     """
-    n = len(p_stress_arr)
-    risks = np.zeros(n)
+    p_stress = np.clip(p_stress_arr, 0.0, 1.0)
+    p_perf = np.clip(p_perf_arr, 0.0, 1.0)
 
-    for i in range(n):
-        sq = signal_quality_arr[i] if signal_quality_arr is not None else None
-        risks[i] = compute_risk_score(
-            p_stress_arr[i], p_perf_arr[i], w_phys, w_perf, sq
-        )
+    if signal_quality_arr is not None:
+        sq = np.clip(signal_quality_arr, 0.0, 1.0)
+        w_phys_adj = w_phys * sq
+        w_perf_adj = w_perf + w_phys * (1.0 - sq) * 0.5
+    else:
+        w_phys_adj = np.full_like(p_stress, w_phys)
+        w_perf_adj = np.full_like(p_stress, w_perf)
 
-    return risks
+    w_total = w_phys_adj + w_perf_adj
+    mask = w_total > 0
+    w_phys_adj[mask] /= w_total[mask]
+    w_perf_adj[mask] /= w_total[mask]
+
+    risks = w_phys_adj * p_stress + w_perf_adj * p_perf
+    return np.clip(risks, 0.0, 1.0)
 
 
 def estimate_signal_quality(rr_intervals: np.ndarray) -> float:

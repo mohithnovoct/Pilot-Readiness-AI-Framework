@@ -15,16 +15,13 @@ Scenario Presets:
   - Critical:    α = 1%   (only definitive risks)
 """
 
+import os
+import sys
 import numpy as np
 from typing import Tuple, Optional, Dict
 
-
-# Predefined scenario presets
-SCENARIO_PRESETS = {
-    "training": {"alpha": 0.10, "description": "High sensitivity — training missions"},
-    "operational": {"alpha": 0.05, "description": "Balanced — standard operations"},
-    "critical": {"alpha": 0.01, "description": "Low false-alarm — critical missions"},
-}
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from config import SCENARIO_PRESETS
 
 
 def compute_threshold(

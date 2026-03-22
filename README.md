@@ -88,16 +88,14 @@ Minor Project/
 │   └── visualization/
 │       ├── plots.py            # Static matplotlib/seaborn plots
 │       └── dashboard.py        # Interactive Plotly HTML dashboard
-├── Notebooks/
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_feature_analysis.ipynb
-│   └── 03_results.ipynb
 ├── output/
 │   ├── features/      # Extracted feature CSVs
 │   ├── models/        # Trained model pickles
 │   ├── plots/         # Static plot PNGs
 │   ├── edge/          # Exported C/Python models
 │   └── dashboard.html # Interactive dashboard
+├── tests/             # Unit tests
+├── config.py          # Central configuration
 ├── main.py            # End-to-end pipeline
 ├── requirements.txt   # Python dependencies
 └── README.md          # This file

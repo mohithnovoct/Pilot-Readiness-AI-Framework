@@ -1,3 +1,27 @@
+# Data & documents (large files)
 Data/
 Documents/
+
+# Python
 venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Output artifacts
+output/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

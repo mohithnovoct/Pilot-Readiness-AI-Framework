@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import logging
 import os
 import sys
 import time
@@ -25,6 +26,8 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
+logger = logging.getLogger("pilot_readiness")
 
 # Ensure project root is on path
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -37,11 +40,13 @@ from src.features.feature_pipeline import (
 )
 from src.models.stress_classifier import (
     prepare_training_data, train_loso_cv, train_final_model,
-    compute_shap_importance, save_model, HRV_FEATURE_COLS
+    compute_shap_importance, save_model, load_model as load_stress_model,
+    HRV_FEATURE_COLS
 )
 from src.models.performance_model import (
     prepare_performance_data, train_performance_model,
-    save_model as save_perf_model, PERF_FEATURE_COLS
+    save_model as save_perf_model, load_model as load_perf_model,
+    PERF_FEATURE_COLS
 )
 from src.risk.fusion import compute_risk_batch, get_risk_category
 from src.risk.threshold import ThresholdManager, evaluate_threshold_performance
@@ -52,6 +57,37 @@ from src.visualization.plots import (
     save_all_plots
 )
 from src.visualization.dashboard import generate_dashboard
+
+
+def setup_logging(log_level: str = "INFO"):
+    """Configure structured logging to console and file."""
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Console handler
+    console = logging.StreamHandler(sys.stdout)
+    console.setLevel(level)
+    console.setFormatter(fmt)
+
+    # File handler (rotating)
+    log_dir = os.path.join(PROJECT_ROOT, "output")
+    os.makedirs(log_dir, exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    file_handler = RotatingFileHandler(
+        os.path.join(log_dir, "pipeline.log"),
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=3,
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(fmt)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(console)
+    root_logger.addHandler(file_handler)
 
 
 def setup_output_dirs():
@@ -72,11 +108,11 @@ def run_pipeline(args):
     """Execute the full pipeline."""
     start_time = time.time()
 
-    print("=" * 70)
-    print("  PILOT READINESS MONITORING FRAMEWORK")
-    print("  A Lightweight AI Framework for Stress-Correlated")
-    print("  Performance Indicators")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  PILOT READINESS MONITORING FRAMEWORK")
+    logger.info("  A Lightweight AI Framework for Stress-Correlated")
+    logger.info("  Performance Indicators")
+    logger.info("=" * 70)
 
     setup_output_dirs()
     output_dir = os.path.join(PROJECT_ROOT, "output")
@@ -84,17 +120,17 @@ def run_pipeline(args):
     # ============================================================
     # STEP 1: Feature Extraction
     # ============================================================
-    print("\n" + "=" * 70)
-    print("  STEP 1: Feature Extraction")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  STEP 1: Feature Extraction")
+    logger.info("=" * 70)
 
     # --- WESAD features ---
     subject_ids = ["S2"] if args.quick_test else None
-    print("\n[1a] Extracting HRV features from WESAD data...")
+    logger.info("[1a] Extracting HRV features from WESAD data...")
 
     features_path = os.path.join(output_dir, "features", "wesad_features.csv")
     if os.path.exists(features_path) and args.skip_extraction:
-        print(f"  Loading cached features from {features_path}")
+        logger.info("Loading cached features from %s", features_path)
         wesad_df = pd.read_csv(features_path)
     else:
         wesad_df = extract_wesad_features(
@@ -106,11 +142,11 @@ def run_pipeline(args):
                       os.path.join(output_dir, "features"))
 
     # --- Performance features ---
-    print("\n[1b] Generating simulated performance data...")
+    logger.info("[1b] Generating simulated performance data...")
 
     perf_path = os.path.join(output_dir, "features", "performance_features.csv")
     if os.path.exists(perf_path) and args.skip_extraction:
-        print(f"  Loading cached features from {perf_path}")
+        logger.info("Loading cached features from %s", perf_path)
         perf_df = pd.read_csv(perf_path)
     else:
         perf_df = extract_performance_features(
@@ -126,54 +162,70 @@ def run_pipeline(args):
     # ============================================================
     # STEP 2: Model Training
     # ============================================================
-    print("\n" + "=" * 70)
-    print("  STEP 2: Model Training")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  STEP 2: Model Training")
+    logger.info("=" * 70)
 
     stress_model_path = os.path.join(output_dir, "models", "stress_classifier.pkl")
     perf_model_path = os.path.join(output_dir, "models", "performance_model.pkl")
 
-    # --- Stress classifier ---
-    print("\n[2a] Training LightGBM Stress Classifier...")
-
     feature_cols = [c for c in HRV_FEATURE_COLS if c in physio_df.columns]
     X_stress, y_stress, groups = prepare_training_data(physio_df, feature_cols)
 
-    if len(X_stress) < 10:
-        print("  WARNING: Too few samples for robust training.")
-        print("  Consider running without --quick-test for full dataset.")
-
-    # LOSO cross-validation
-    if len(np.unique(groups)) > 1:
-        cv_results = train_loso_cv(X_stress, y_stress, groups)
-    else:
-        print("  Skipping LOSO CV (only 1 subject in quick test)")
-        cv_results = None
-
-    # Train final model
-    stress_model = train_final_model(
-        X_stress, y_stress,
-        do_grid_search=not args.quick_test,
-    )
-    save_model(stress_model, stress_model_path)
-
-    # SHAP importance
-    importance_df = compute_shap_importance(stress_model, X_stress, feature_cols)
-
-    # --- Performance model ---
-    print("\n[2b] Training Performance Regression Model...")
-
     perf_feature_cols = [c for c in PERF_FEATURE_COLS if c in perf_train_df.columns]
     X_perf, y_perf, scaler = prepare_performance_data(perf_train_df, perf_feature_cols)
-    perf_model = train_performance_model(X_perf, y_perf, do_grid_search=not args.quick_test)
-    save_perf_model(perf_model, perf_model_path)
+
+    if args.skip_training and os.path.exists(stress_model_path) and os.path.exists(perf_model_path):
+        # --- Load cached models ---
+        logger.info("[2a] Loading cached Stress Classifier...")
+        stress_model = load_stress_model(stress_model_path)
+        logger.info("Loaded from %s", stress_model_path)
+
+        logger.info("[2b] Loading cached Performance Model...")
+        perf_model = load_perf_model(perf_model_path)
+        logger.info("Loaded from %s", perf_model_path)
+
+        cv_results = None
+        importance_df = compute_shap_importance(stress_model, X_stress, feature_cols)
+    else:
+        if args.skip_training:
+            logger.warning("--skip-training set but cached models not found. Training from scratch.")
+
+        # --- Stress classifier ---
+        logger.info("[2a] Training LightGBM Stress Classifier...")
+
+        if len(X_stress) < 10:
+            logger.warning("Too few samples for robust training.")
+            logger.warning("Consider running without --quick-test for full dataset.")
+
+        # LOSO cross-validation
+        if len(np.unique(groups)) > 1:
+            cv_results = train_loso_cv(X_stress, y_stress, groups)
+        else:
+            logger.info("Skipping LOSO CV (only 1 subject in quick test)")
+            cv_results = None
+
+        # Train final model
+        stress_model = train_final_model(
+            X_stress, y_stress,
+            do_grid_search=not args.quick_test,
+        )
+        save_model(stress_model, stress_model_path)
+
+        # SHAP importance
+        importance_df = compute_shap_importance(stress_model, X_stress, feature_cols)
+
+        # --- Performance model ---
+        logger.info("[2b] Training Performance Regression Model...")
+        perf_model = train_performance_model(X_perf, y_perf, do_grid_search=not args.quick_test)
+        save_perf_model(perf_model, perf_model_path)
 
     # ============================================================
     # STEP 3: Risk Scoring & Threshold Tuning
     # ============================================================
-    print("\n" + "=" * 70)
-    print("  STEP 3: Risk Score Fusion & Threshold Optimization")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  STEP 3: Risk Score Fusion & Threshold Optimization")
+    logger.info("=" * 70)
 
     # Generate stress probabilities for all windows
     stress_probs = stress_model.predict_proba(X_stress)[:, 1]
@@ -199,14 +251,14 @@ def run_pipeline(args):
     # Initialize ThresholdManager with baseline distribution
     tm = ThresholdManager(baseline_scores=baseline_risks, alpha=0.05)
 
-    print(f"\n  Threshold Analysis:")
+    logger.info("Threshold Analysis:")
     for scenario in ["training", "operational", "critical"]:
         gamma = tm.set_scenario(scenario)
         metrics = evaluate_threshold_performance(baseline_risks, stress_risks, gamma)
-        print(f"  {scenario.upper():12s}  γ={gamma:.3f}  "
-              f"FAR={metrics['false_alarm_rate']:.3f}  "
-              f"DR={metrics['detection_rate']:.3f}  "
-              f"F1={metrics['f1']:.3f}")
+        logger.info("  %s  γ=%.3f  FAR=%.3f  DR=%.3f  F1=%.3f",
+                    scenario.upper().ljust(12), gamma,
+                    metrics['false_alarm_rate'], metrics['detection_rate'],
+                    metrics['f1'])
 
     # Use operational threshold for dashboard
     threshold = tm.set_scenario("operational")
@@ -214,9 +266,9 @@ def run_pipeline(args):
     # ============================================================
     # STEP 4: Edge Optimization
     # ============================================================
-    print("\n" + "=" * 70)
-    print("  STEP 4: Edge Model Export & Benchmarking")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  STEP 4: Edge Model Export & Benchmarking")
+    logger.info("=" * 70)
 
     edge_dir = os.path.join(output_dir, "edge")
     edge_report = generate_edge_report(
@@ -228,9 +280,9 @@ def run_pipeline(args):
     # ============================================================
     # STEP 5: Visualization
     # ============================================================
-    print("\n" + "=" * 70)
-    print("  STEP 5: Generating Visualizations")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("  STEP 5: Generating Visualizations")
+    logger.info("=" * 70)
 
     plots_dir = os.path.join(output_dir, "plots")
 
@@ -282,7 +334,7 @@ def run_pipeline(args):
     save_all_plots(plots_dir, plots)
 
     # Interactive Dashboard
-    print("\n[5b] Generating interactive dashboard...")
+    logger.info("[5b] Generating interactive dashboard...")
     dashboard_path = generate_dashboard(
         risk_scores=risk_scores,
         timestamps=timestamps,
@@ -298,27 +350,30 @@ def run_pipeline(args):
     # ============================================================
     elapsed = time.time() - start_time
 
-    print("\n" + "=" * 70)
-    print("  PIPELINE COMPLETE")
-    print("=" * 70)
-    print(f"\n  Total time: {elapsed:.1f} seconds")
+    logger.info("=" * 70)
+    logger.info("  PIPELINE COMPLETE")
+    logger.info("=" * 70)
+    logger.info("Total time: %.1f seconds", elapsed)
 
     if cv_results:
-        print(f"\n  Model Performance (LOSO CV):")
-        print(f"    Accuracy: {cv_results['overall_accuracy']:.4f}")
-        print(f"    F1-Score: {cv_results['overall_f1']:.4f}")
-        print(f"    ROC-AUC:  {cv_results['overall_auc']:.4f}")
+        logger.info("Model Performance (LOSO CV):")
+        logger.info("  Accuracy: %.4f", cv_results['overall_accuracy'])
+        logger.info("  F1-Score: %.4f", cv_results['overall_f1'])
+        logger.info("  ROC-AUC:  %.4f", cv_results['overall_auc'])
 
-    print(f"\n  Edge Deployment:")
+    logger.info("Edge Deployment:")
     if edge_report.get("profile"):
         ram = edge_report["profile"].get("estimated_ram_kb",
               edge_report["profile"].get("model_size_kb", "N/A"))
-        print(f"    Model RAM:  {ram:.1f} KB" if isinstance(ram, float) else f"    Model RAM:  {ram}")
+        if isinstance(ram, float):
+            logger.info("  Model RAM:  %.1f KB", ram)
+        else:
+            logger.info("  Model RAM:  %s", ram)
     if edge_report.get("benchmark"):
-        print(f"    Latency:    {edge_report['benchmark']['mean_latency_ms']:.3f} ms")
+        logger.info("  Latency:    %.3f ms", edge_report['benchmark']['mean_latency_ms'])
 
-    print(f"\n  Open dashboard: file://{os.path.abspath(dashboard_path)}")
-    print("=" * 70)
+    logger.info("Open dashboard: file://%s", os.path.abspath(dashboard_path))
+    logger.info("=" * 70)
 
 
 def main():
@@ -349,8 +404,14 @@ def main():
         "--n-sessions", type=int, default=30,
         help="Number of simulated MATB-II sessions per workload level (default: 30)"
     )
+    parser.add_argument(
+        "--log-level", type=str, default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)"
+    )
 
     args = parser.parse_args()
+    setup_logging(args.log_level)
     run_pipeline(args)
 
 

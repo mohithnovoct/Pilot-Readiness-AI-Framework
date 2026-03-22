@@ -12,14 +12,13 @@ File types handled:
 
 import os
 import re
+import sys
 import pandas as pd
 import numpy as np
 from typing import List, Optional
 
-MATB_DATA_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "Data", "NASA", "MATB-II_2.0", "MATB-II 2.0", "Data"
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from config import MATB_DATA_DIR
 
 
 def _parse_timestamp(ts_str: str) -> float:

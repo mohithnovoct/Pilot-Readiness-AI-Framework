@@ -17,6 +17,7 @@ Based on published parameters from the research plan (Section 5.2):
 
 import numpy as np
 import pandas as pd
+from scipy.stats import skew, kurtosis, entropy as sp_entropy
 from typing import Optional, Tuple
 
 
@@ -235,7 +236,6 @@ def generate_full_simulation(
                 lag1 = 0.0
 
             # RT distribution shape
-            from scipy.stats import skew, kurtosis
             rt_skew = skew(rts)
             rt_kurt = kurtosis(rts)
 
@@ -247,7 +247,6 @@ def generate_full_simulation(
 
             # Inceptor entropy (simulate stick positions as bins)
             # Approximate by computing entropy of tracking RMSD distribution
-            from scipy.stats import entropy as sp_entropy
             hist, _ = np.histogram(track_rmsd, bins=20, density=True)
             hist = hist[hist > 0]
             inceptor_entropy = sp_entropy(hist)

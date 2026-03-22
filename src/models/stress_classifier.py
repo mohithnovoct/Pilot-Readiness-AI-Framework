@@ -24,17 +24,12 @@ from sklearn.metrics import (
 from typing import Dict, Optional, Tuple, List
 import pickle
 import os
+import sys
 import warnings
 
-
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 # Feature columns used for training (HRV features)
-HRV_FEATURE_COLS = [
-    "MeanNN", "MedianNN", "SDNN", "RMSSD", "pNN50",
-    "MeanHR", "SDHR",
-    "VLF_power", "LF_power", "HF_power", "Total_power",
-    "LF_HF_ratio", "LF_norm", "HF_norm",
-    "SampEn",
-]
+from config import HRV_FEATURE_COLS
 
 
 def prepare_training_data(

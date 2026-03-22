@@ -19,25 +19,14 @@ Labels in the .pkl:
 
 import os
 import pickle
+import sys
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple
 
-# ----- Constants -----
-WESAD_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "Data", "WESAD"
-)
-
-SUBJECT_IDS = [f"S{i}" for i in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17]]
-
-LABEL_MAP = {
-    0: "not_defined",
-    1: "baseline",
-    2: "stress",
-    3: "amusement",
-    4: "meditation",
-}
+# Ensure project root is on path for config imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from config import WESAD_DIR, SUBJECT_IDS, LABEL_MAP
 
 # Sampling rates for RespiBAN chest device (Hz)
 CHEST_SAMPLING_RATES = {

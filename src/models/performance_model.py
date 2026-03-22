@@ -17,15 +17,11 @@ from sklearn.preprocessing import MinMaxScaler
 from typing import Optional, Tuple, List
 import pickle
 import os
+import sys
 
-
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 # Performance feature columns
-PERF_FEATURE_COLS = [
-    "mean_rt", "std_rt", "cv_rt", "median_rt",
-    "lag1_autocorr", "rt_skewness", "rt_kurtosis",
-    "mean_track_rmsd", "std_track_rmsd", "inceptor_entropy",
-    "mean_comm_rt", "comm_accuracy", "n_timeouts",
-]
+from config import PERF_FEATURE_COLS
 
 
 def prepare_performance_data(
