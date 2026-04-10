@@ -35,6 +35,7 @@ from config import HRV_FEATURE_COLS
 def prepare_training_data(
     df: pd.DataFrame,
     feature_cols: Optional[List[str]] = None,
+    per_subject_norm: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Prepare feature matrix, labels, and group IDs for LOSO CV.
@@ -70,6 +71,21 @@ def prepare_training_data(
     for j in range(X.shape[1]):
         mask = np.isnan(X[:, j])
         X[mask, j] = col_medians[j]
+        
+    # Personalized Baseline Mapping (Per-Subject Z-Score Normalization)
+    if per_subject_norm:
+        unique_subjects = np.unique(groups)
+        for sid in unique_subjects:
+            subject_mask = (groups == sid)
+            subject_data = X[subject_mask]
+            
+            s_mean = np.nanmean(subject_data, axis=0)
+            s_std = np.nanstd(subject_data, axis=0)
+            
+            # Avoid division by zero for constant features
+            s_std[s_std == 0] = 1.0
+            
+            X[subject_mask] = (subject_data - s_mean) / s_std
 
     print(f"Training data: {X.shape[0]} samples, {X.shape[1]} features")
     print(f"  Class distribution: baseline={np.sum(y == 0)}, stress={np.sum(y == 1)}")

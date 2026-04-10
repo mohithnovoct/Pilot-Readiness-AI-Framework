@@ -36,6 +36,7 @@ sys.path.insert(0, PROJECT_ROOT)
 from src.data.wesad_loader import SUBJECT_IDS
 from src.features.feature_pipeline import (
     extract_wesad_features, extract_performance_features,
+    extract_swell_features,
     build_combined_feature_matrix, save_features
 )
 from src.models.stress_classifier import (
@@ -48,6 +49,7 @@ from src.models.performance_model import (
     save_model as save_perf_model, load_model as load_perf_model,
     PERF_FEATURE_COLS
 )
+from config import SWELL_PHYSIO_COLS, SWELL_BEH_COLS
 from src.risk.fusion import compute_risk_batch, get_risk_category
 from src.risk.threshold import ThresholdManager, evaluate_threshold_performance
 from src.edge.export_model import generate_edge_report
@@ -124,40 +126,55 @@ def run_pipeline(args):
     logger.info("  STEP 1: Feature Extraction")
     logger.info("=" * 70)
 
-    # --- WESAD features ---
-    subject_ids = ["S2"] if args.quick_test else None
-    logger.info("[1a] Extracting HRV features from WESAD data...")
-
-    features_path = os.path.join(output_dir, "features", "wesad_features.csv")
-    if os.path.exists(features_path) and args.skip_extraction:
-        logger.info("Loading cached features from %s", features_path)
-        wesad_df = pd.read_csv(features_path)
+    if args.dataset == "wesad":
+        # --- WESAD features ---
+        subject_ids = ["S2"] if args.quick_test else None
+        logger.info("[1a] Extracting HRV features from WESAD data...")
+    
+        features_path = os.path.join(output_dir, "features", "wesad_features.csv")
+        if os.path.exists(features_path) and args.skip_extraction:
+            logger.info("Loading cached features from %s", features_path)
+            wesad_df = pd.read_csv(features_path)
+        else:
+            wesad_df = extract_wesad_features(
+                subject_ids=subject_ids,
+                window_sec=args.window_sec,
+                overlap=args.overlap,
+            )
+            save_features(wesad_df, "wesad_features.csv",
+                          os.path.join(output_dir, "features"))
+    
+        # --- Performance features ---
+        logger.info("[1b] Generating simulated performance data...")
+    
+        perf_path = os.path.join(output_dir, "features", "performance_features.csv")
+        if os.path.exists(perf_path) and args.skip_extraction:
+            logger.info("Loading cached features from %s", perf_path)
+            perf_df = pd.read_csv(perf_path)
+        else:
+            perf_df = extract_performance_features(
+                n_sessions_per_level=args.n_sessions,
+                seed=42,
+            )
+            save_features(perf_df, "performance_features.csv",
+                          os.path.join(output_dir, "features"))
+    
+        # Combine
+        physio_df, perf_train_df = build_combined_feature_matrix(wesad_df, perf_df)
     else:
-        wesad_df = extract_wesad_features(
-            subject_ids=subject_ids,
-            window_sec=args.window_sec,
-            overlap=args.overlap,
-        )
-        save_features(wesad_df, "wesad_features.csv",
-                      os.path.join(output_dir, "features"))
-
-    # --- Performance features ---
-    logger.info("[1b] Generating simulated performance data...")
-
-    perf_path = os.path.join(output_dir, "features", "performance_features.csv")
-    if os.path.exists(perf_path) and args.skip_extraction:
-        logger.info("Loading cached features from %s", perf_path)
-        perf_df = pd.read_csv(perf_path)
-    else:
-        perf_df = extract_performance_features(
-            n_sessions_per_level=args.n_sessions,
-            seed=42,
-        )
-        save_features(perf_df, "performance_features.csv",
-                      os.path.join(output_dir, "features"))
-
-    # Combine
-    physio_df, perf_train_df = build_combined_feature_matrix(wesad_df, perf_df)
+        # --- SWELL features ---
+        logger.info("[1a] Extracting features from SWELL dataset...")
+        physio_path = os.path.join(output_dir, "features", "swell_physio.csv")
+        beh_path = os.path.join(output_dir, "features", "swell_beh.csv")
+        
+        if os.path.exists(physio_path) and os.path.exists(beh_path) and args.skip_extraction:
+            logger.info("Loading cached features from %s and %s", physio_path, beh_path)
+            physio_df = pd.read_csv(physio_path)
+            perf_train_df = pd.read_csv(beh_path)
+        else:
+            physio_df, perf_train_df = extract_swell_features()
+            save_features(physio_df, "swell_physio.csv", os.path.join(output_dir, "features"))
+            save_features(perf_train_df, "swell_beh.csv", os.path.join(output_dir, "features"))
 
     # ============================================================
     # STEP 2: Model Training
@@ -166,14 +183,20 @@ def run_pipeline(args):
     logger.info("  STEP 2: Model Training")
     logger.info("=" * 70)
 
-    stress_model_path = os.path.join(output_dir, "models", "stress_classifier.pkl")
-    perf_model_path = os.path.join(output_dir, "models", "performance_model.pkl")
+    stress_model_path = os.path.join(output_dir, "models", f"{args.dataset}_stress_classifier.pkl")
+    perf_model_path = os.path.join(output_dir, "models", f"{args.dataset}_performance_model.pkl")
 
-    feature_cols = [c for c in HRV_FEATURE_COLS if c in physio_df.columns]
-    X_stress, y_stress, groups = prepare_training_data(physio_df, feature_cols)
+    if args.dataset == "wesad":
+        feature_cols = [c for c in HRV_FEATURE_COLS if c in physio_df.columns]
+        perf_feature_cols = [c for c in PERF_FEATURE_COLS if c in perf_train_df.columns]
+        normalize_target_flag = True
+    else:
+        feature_cols = [c for c in SWELL_PHYSIO_COLS + SWELL_BEH_COLS if c in physio_df.columns]
+        perf_feature_cols = [c for c in SWELL_BEH_COLS if c in perf_train_df.columns]
+        normalize_target_flag = False
 
-    perf_feature_cols = [c for c in PERF_FEATURE_COLS if c in perf_train_df.columns]
-    X_perf, y_perf, scaler = prepare_performance_data(perf_train_df, perf_feature_cols)
+    X_stress, y_stress, groups = prepare_training_data(physio_df, feature_cols, per_subject_norm=args.per_subject_norm)
+    X_perf, y_perf, scaler = prepare_performance_data(perf_train_df, perf_feature_cols, normalize_target=normalize_target_flag, per_subject_norm=args.per_subject_norm)
 
     if args.skip_training and os.path.exists(stress_model_path) and os.path.exists(perf_model_path):
         # --- Load cached models ---
@@ -208,7 +231,7 @@ def run_pipeline(args):
         # Train final model
         stress_model = train_final_model(
             X_stress, y_stress,
-            do_grid_search=not args.quick_test,
+            do_grid_search=(not args.quick_test) and (args.dataset == "wesad"),
         )
         save_model(stress_model, stress_model_path)
 
@@ -217,7 +240,10 @@ def run_pipeline(args):
 
         # --- Performance model ---
         logger.info("[2b] Training Performance Regression Model...")
-        perf_model = train_performance_model(X_perf, y_perf, do_grid_search=not args.quick_test)
+        perf_model = train_performance_model(
+            X_perf, y_perf, 
+            do_grid_search=(not args.quick_test) and (args.dataset == "wesad")
+        )
         save_perf_model(perf_model, perf_model_path)
 
     # ============================================================
@@ -274,7 +300,7 @@ def run_pipeline(args):
     edge_report = generate_edge_report(
         stress_model, X_stress,
         output_dir=edge_dir,
-        model_name="stress_classifier",
+        model_name=f"{args.dataset}_stress_classifier",
     )
 
     # ============================================================
@@ -303,10 +329,11 @@ def run_pipeline(args):
         )
 
     # HRV comparison
-    plots["hrv_comparison"] = plot_hrv_comparison(
-        wesad_df,
-        save_path=os.path.join(plots_dir, "hrv_comparison.png"),
-    )
+    if args.dataset == "wesad":
+        plots["hrv_comparison"] = plot_hrv_comparison(
+            physio_df,
+            save_path=os.path.join(plots_dir, "hrv_comparison.png"),
+        )
 
     # Risk timeline
     timestamps = np.arange(len(risk_scores))
@@ -339,7 +366,7 @@ def run_pipeline(args):
         risk_scores=risk_scores,
         timestamps=timestamps,
         threshold=threshold,
-        features_df=wesad_df,
+        features_df=physio_df,
         feature_importance=importance_df,
         cv_results=cv_results,
         output_path=os.path.join(output_dir, "dashboard.html"),
@@ -385,12 +412,21 @@ def main():
         help="Run quick test with single subject (S2 only)"
     )
     parser.add_argument(
+        "--dataset", type=str, default="wesad",
+        choices=["wesad", "swell"],
+        help="Dataset pipeline to run (wesad=MATB simulation, swell=Knowledge Worker)"
+    )
+    parser.add_argument(
         "--skip-extraction", action="store_true",
         help="Skip feature extraction if cached CSVs exist"
     )
     parser.add_argument(
         "--skip-training", action="store_true",
         help="Skip model training (use cached models)"
+    )
+    parser.add_argument(
+        "--per-subject-norm", action="store_true",
+        help="Enable personalized Z-score normalization per pilot to improve relative deviation detection"
     )
     parser.add_argument(
         "--window-sec", type=int, default=60,

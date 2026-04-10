@@ -13,6 +13,7 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "Data")
 WESAD_DIR = os.path.join(DATA_DIR, "WESAD")
 NASA_DIR = os.path.join(DATA_DIR, "NASA")
 MATB_DATA_DIR = os.path.join(NASA_DIR, "MATB-II_2.0", "MATB-II 2.0", "Data")
+SWELL_DIR = os.path.join(DATA_DIR, "0_SWELL")
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
 
 # ---- WESAD ----
@@ -38,7 +39,7 @@ DEFAULT_OVERLAP = 0.5         # fraction
 LABEL_PURITY_THRESHOLD = 0.80 # minimum fraction for majority-vote label
 VALID_LABELS = [1, 2]         # baseline, stress
 
-# ---- HRV Features ----
+# ---- HRV Features (WESAD) ----
 HRV_FEATURE_COLS = [
     "MeanNN", "MedianNN", "SDNN", "RMSSD", "pNN50",
     "MeanHR", "SDHR",
@@ -47,12 +48,24 @@ HRV_FEATURE_COLS = [
     "SampEn",
 ]
 
-# ---- Performance Features ----
+# ---- Performance Features (MATB-II) ----
 PERF_FEATURE_COLS = [
     "mean_rt", "std_rt", "cv_rt", "median_rt",
     "lag1_autocorr", "rt_skewness", "rt_kurtosis",
     "mean_track_rmsd", "std_track_rmsd", "inceptor_entropy",
     "mean_comm_rt", "comm_accuracy", "n_timeouts",
+]
+
+# ---- SWELL Features ----
+SWELL_PHYSIO_COLS = [
+    "HR", "RMSSD", "SCL"
+]
+
+SWELL_BEH_COLS = [
+    "SnMouseAct", "SnLeftClicked", "SnRightClicked", "SnDoubleClicked", "SnWheel", 
+    "SnDragged", "SnMouseDistance", "SnKeyStrokes", "SnChars", "SnSpecialKeys", 
+    "SnDirectionKeys", "SnErrorKeys", "SnShortcutKeys", "SnSpaces", "SnAppChange", 
+    "SnTabfocusChange"
 ]
 
 # ---- Model Hyperparameters ----

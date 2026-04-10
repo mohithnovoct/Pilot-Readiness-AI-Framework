@@ -21,6 +21,7 @@ from src.data.preprocessing import (
 from src.features.hrv_features import extract_all_hrv_features
 from src.data.matb_simulator import generate_full_simulation
 from src.features.performance_features import extract_all_performance_features
+from src.data.swell_loader import load_swell_physio, load_swell_behavioral
 
 
 def extract_wesad_features(
@@ -147,6 +148,39 @@ def extract_performance_features(
         seed=seed,
     )
     return df
+
+
+def extract_swell_features(
+    data_dir: Optional[str] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Extract and process SWELL feature matrices.
+    Merges behavioral telemetry into the physiological matrix
+    so the stress classifier has access to full context.
+
+    Returns
+    -------
+    physio_features : pd.DataFrame
+        SWELL unified feature matrix (Physiology + Behavior).
+    perf_features : pd.DataFrame
+        SWELL behavioral feature matrix.
+    """
+    print("\nExtracting SWELL physiological and behavioral features...")
+    physio_df = load_swell_physio(data_dir=data_dir)
+    beh_df = load_swell_behavioral(data_dir=data_dir)
+    
+    # SWELL behavioral data has multiple sheets per minute. We average them.
+    from config import SWELL_BEH_COLS
+    available_cols = [c for c in SWELL_BEH_COLS if c in beh_df.columns]
+    beh_agg = beh_df.groupby(['subject_id', 'Condition', 'timestamp'])[available_cols].mean().reset_index()
+    
+    # Merge behavioral into physio
+    unified_df = pd.merge(physio_df, beh_agg, on=['subject_id', 'Condition', 'timestamp'], how='left')
+    
+    # Fill any missing behavioral gaps with 0 (no activity implies nothing was typed)
+    unified_df[available_cols] = unified_df[available_cols].fillna(0)
+    
+    return unified_df, beh_df
 
 
 def build_combined_feature_matrix(

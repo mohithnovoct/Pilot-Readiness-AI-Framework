@@ -28,6 +28,7 @@ def prepare_performance_data(
     df: pd.DataFrame,
     feature_cols: Optional[List[str]] = None,
     normalize_target: bool = True,
+    per_subject_norm: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, Optional[MinMaxScaler]]:
     """
     Prepare performance data for regression.
@@ -70,6 +71,22 @@ def prepare_performance_data(
     for j in range(X.shape[1]):
         mask = np.isnan(X[:, j])
         X[mask, j] = col_medians[j]
+
+    # Personalized Baseline Mapping (Per-Subject Z-Score Normalization)
+    if per_subject_norm and "subject_id" in clean.columns:
+        groups = clean["subject_id"].values
+        unique_subjects = np.unique(groups)
+        for sid in unique_subjects:
+            subject_mask = (groups == sid)
+            subject_data = X[subject_mask]
+            
+            s_mean = np.nanmean(subject_data, axis=0)
+            s_std = np.nanstd(subject_data, axis=0)
+            
+            # Avoid division by zero
+            s_std[s_std == 0] = 1.0
+            
+            X[subject_mask] = (subject_data - s_mean) / s_std
 
     print(f"Performance data: {X.shape[0]} samples, {X.shape[1]} features")
     print(f"  Target range: [{y.min():.2f}, {y.max():.2f}]")
