@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Real-time pilot readiness monitoring with AI-powered stress detection">
+    <title>Pilot Readiness — Live Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0f1c;
+            --bg-card: rgba(30, 41, 59, 0.85);
+            --bg-card-hover: rgba(51, 65, 85, 0.6);
+            --border: rgba(255, 255, 255, 0.06);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --green: #22c55e;
+            --yellow: #eab308;
+            --orange: #f97316;
+            --red: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 15% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 90%, rgba(6, 182, 212, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ───── Header ───── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 28px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .header-left h1 {
+            font-size: 1.5em;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header-left p { color: var(--text-secondary); font-size: 0.85em; margin-top: 2px; }
+        .header-right { display: flex; gap: 10px; align-items: center; }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, var(--green), #16a34a);
+            color: white;
+        }
+        .btn-start:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
+        .btn-stop {
+            background: linear-gradient(135deg, var(--red), #dc2626);
+            color: white;
+        }
+        .btn-stop:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,0.4); }
+        .btn-reset {
+            background: rgba(100, 116, 139, 0.3);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-reset:hover { background: rgba(100, 116, 139, 0.5); }
+
+        .speed-control {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(30,41,59,0.6); padding: 6px 14px;
+            border-radius: 10px; border: 1px solid var(--border);
+        }
+        .speed-control label { color: var(--text-muted); font-size: 0.8em; font-weight: 500; }
+        .speed-control select {
+            background: transparent; color: var(--accent-cyan);
+            border: none; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em; cursor: pointer; outline: none;
+        }
+        .speed-control select option { background: #1e293b; }
+
+        /* ───── Main Grid ───── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr 280px;
+            gap: 20px;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* ───── Left Panel ───── */
+        .left-panel { display: flex; flex-direction: column; gap: 16px; }
+
+        .gauge-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            padding: 28px 20px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .gauge-container {
+            position: relative;
+            width: 200px;
+            height: 120px;
+            margin: 0 auto 16px;
+        }
+        .gauge-container svg { width: 100%; height: 100%; }
+        .gauge-value {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.2em;
+            font-weight: 700;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-weight: 700;
+            font-size: 1em;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        .status-ready {
+            background: rgba(34, 197, 94, 0.12);
+            color: var(--green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+        }
+        .status-alert {
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+            animation: alertPulse 1.5s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.35); }
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .pulse-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: dotPulse 1.5s infinite;
+        }
+
+        .info-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border);
+        }
+        .info-card h3 {
+            color: var(--text-secondary);
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: var(--text-muted); font-size: 0.85em; }
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        /* ───── Center Panel ───── */
+        .center-panel { display: flex; flex-direction: column; gap: 16px; }
+        .chart-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            padding: 20px 24px;
+            border: 1px solid var(--border);
+            flex: 1;
+        }
+        .chart-title {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 2px;
+        }
+
+        /* ───── Right Panel ───── */
+        .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+        .feature-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .feature-item:last-child { border-bottom: none; }
+        .feature-name {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .feature-bar {
+            width: 80px;
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .feature-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .log-container::-webkit-scrollbar { width: 4px; }
+        .log-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+        .log-alert { color: var(--red); }
+        .log-info { color: var(--accent-cyan); }
+
+        /* ───── Responsive ───── */
+        @media (max-width: 1100px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .left-panel { flex-direction: row; flex-wrap: wrap; }
+            .gauge-card { flex: 1; min-width: 280px; }
+            .info-card { flex: 1; min-width: 200px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>🛫 Pilot Readiness — Live Monitor</h1>
+            <p>Real-Time Streaming Inference Demo</p>
+        </div>
+        <div class="header-right">
+            <div class="speed-control">
+                <label>Speed:</label>
+                <select id="speed-select" onchange="setSpeed(this.value)">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="5">5x</option>
+                    <option value="10">10x</option>
+                </select>
+            </div>
+            <button class="btn btn-start" id="btn-start" onclick="startStream()">▶ Start</button>
+            <button class="btn btn-stop" id="btn-stop" onclick="stopStream()" style="display:none;">⏸ Pause</button>
+            <button class="btn btn-reset" onclick="resetStream()">↺ Reset</button>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Left Panel: Gauge + Stats -->
+        <div class="left-panel">
+            <div class="gauge-card">
+                <div class="gauge-container">
+                    <svg viewBox="0 0 200 120" id="gauge-svg">
+                        <!-- Background arc -->
+                        <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+                        <!-- Colored segments -->
+                        <path d="M 20 110 A 80 80 0 0 1 60 38" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+                        <path d="M 60 38 A 80 80 0 0 1 100 30" fill="none" stroke="#eab308" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+                        <path d="M 100 30 A 80 80 0 0 1 140 38" fill="none" stroke="#f97316" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+                        <path d="M 140 38 A 80 80 0 0 1 180 110" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+                        <!-- Needle -->
+                        <line id="gauge-needle" x1="100" y1="110" x2="100" y2="40" stroke="white" stroke-width="2.5" stroke-linecap="round" style="transition: transform 0.5s ease; transform-origin: 100px 110px;"/>
+                        <circle cx="100" cy="110" r="5" fill="white"/>
+                    </svg>
+                    <div class="gauge-value" id="gauge-value" style="color: #64748b">—</div>
+                </div>
+                <div id="status-badge" class="status-indicator status-ready">
+                    <span class="pulse-dot" style="background: var(--green)"></span>
+                    STANDBY
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>Session Statistics</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Processed</span>
+                    <span class="stat-value" id="stat-processed" style="color: var(--accent-blue)">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Alerts</span>
+                    <span class="stat-value" id="stat-alerts" style="color: var(--red)">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Alert Rate</span>
+                    <span class="stat-value" id="stat-alert-rate" style="color: var(--yellow)">0%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Threshold (γ)</span>
+                    <span class="stat-value" id="stat-threshold" style="color: var(--accent-purple)">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Subject</span>
+                    <span class="stat-value" id="stat-subject" style="color: var(--text-secondary)">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">True Label</span>
+                    <span class="stat-value" id="stat-label" style="color: var(--text-secondary)">—</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>Breakdown</h3>
+                <div class="stat-row">
+                    <span class="stat-label">P(Stress)</span>
+                    <span class="stat-value" id="stat-stress" style="color: var(--orange)">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">P(Perf↓)</span>
+                    <span class="stat-value" id="stat-perf" style="color: var(--accent-cyan)">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Fused Risk</span>
+                    <span class="stat-value" id="stat-fused">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Charts -->
+        <div class="center-panel">
+            <div class="chart-card" style="flex: 2;">
+                <div class="chart-title">Risk Score Timeline</div>
+                <canvas id="timeline-chart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Risk Distribution (Last 50)</div>
+                <canvas id="distribution-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Right Panel: Features + Log -->
+        <div class="right-panel">
+            <div class="info-card">
+                <h3>Top Feature Drivers</h3>
+                <div id="feature-list">
+                    <div style="color: var(--text-muted); font-size: 0.85em; padding: 20px 0; text-align: center;">
+                        Waiting for data...
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card" style="flex: 1;">
+                <h3>Event Log</h3>
+                <div class="log-container" id="log-container">
+                    <div class="log-info">[SYSTEM] Ready. Click Start to begin streaming.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ─── Socket.IO Connection ───
+    const socket = io();
+    let isRunning = false;
+
+    // ─── Timeline Chart ───
+    const timelineCtx = document.getElementById('timeline-chart').getContext('2d');
+    const MAX_POINTS = 100;
+    const timelineData = {
+        labels: [],
+        datasets: [{
+            label: 'Risk Score',
+            data: [],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+        }, {
+            label: 'Threshold',
+            data: [],
+            borderColor: 'rgba(239, 68, 68, 0.6)',
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+        }]
+    };
+
+    const timelineChart = new Chart(timelineCtx, {
+        type: 'line',
+        data: timelineData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 300 },
+            scales: {
+                x: {
+                    display: true,
+                    ticks: { color: '#64748b', maxTicksLimit: 10 },
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                },
+                y: {
+                    min: 0, max: 1.05,
+                    ticks: { color: '#64748b', stepSize: 0.25 },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                }
+            },
+            plugins: {
+                legend: { display: true, labels: { color: '#94a3b8', font: { size: 11 } } },
+            }
+        }
+    });
+
+    // ─── Distribution Chart ───
+    const distCtx = document.getElementById('distribution-chart').getContext('2d');
+    const distChart = new Chart(distCtx, {
+        type: 'bar',
+        data: {
+            labels: ['LOW\n0-0.25', 'MOD\n0.25-0.5', 'ELEV\n0.5-0.75', 'HIGH\n0.75-1.0'],
+            datasets: [{
+                data: [0, 0, 0, 0],
+                backgroundColor: ['#22c55e', '#eab308', '#f97316', '#ef4444'],
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 300 },
+            scales: {
+                x: {
+                    ticks: { color: '#64748b', font: { size: 10 } },
+                    grid: { display: false },
+                },
+                y: {
+                    ticks: { color: '#64748b', stepSize: 5 },
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                }
+            },
+            plugins: { legend: { display: false } },
+        }
+    });
+
+    // ─── Recent scores for distribution ───
+    const recentScores = [];
+
+    // ─── Handle Predictions ───
+    socket.on('prediction', function(data) {
+        // Update gauge
+        updateGauge(data.risk_score, data.color);
+
+        // Update status
+        const badge = document.getElementById('status-badge');
+        if (data.is_alert) {
+            badge.className = 'status-indicator status-alert';
+            badge.innerHTML = '<span class="pulse-dot" style="background: var(--red)"></span> ALERT';
+        } else {
+            badge.className = 'status-indicator status-ready';
+            badge.innerHTML = '<span class="pulse-dot" style="background: var(--green)"></span> READY';
+        }
+
+        // Update stats
+        document.getElementById('stat-processed').textContent = data.total_processed;
+        document.getElementById('stat-alerts').textContent = data.total_alerts;
+        const alertRate = data.total_processed > 0 ? (data.total_alerts / data.total_processed * 100).toFixed(1) : '0';
+        document.getElementById('stat-alert-rate').textContent = alertRate + '%';
+        document.getElementById('stat-threshold').textContent = data.threshold.toFixed(3);
+        document.getElementById('stat-subject').textContent = data.subject_id || '—';
+        document.getElementById('stat-label').textContent = data.true_label || '—';
+        document.getElementById('stat-stress').textContent = data.stress_prob.toFixed(3);
+        document.getElementById('stat-perf').textContent = data.perf_score.toFixed(3);
+
+        const fusedEl = document.getElementById('stat-fused');
+        fusedEl.textContent = data.risk_score.toFixed(3);
+        fusedEl.style.color = data.color;
+
+        // Update timeline
+        timelineData.labels.push(data.timestamp);
+        timelineData.datasets[0].data.push(data.risk_score);
+        timelineData.datasets[1].data.push(data.threshold);
+
+        if (timelineData.labels.length > MAX_POINTS) {
+            timelineData.labels.shift();
+            timelineData.datasets[0].data.shift();
+            timelineData.datasets[1].data.shift();
+        }
+        timelineChart.update('none');
+
+        // Update distribution
+        recentScores.push(data.risk_score);
+        if (recentScores.length > 50) recentScores.shift();
+        updateDistribution();
+
+        // Update features
+        if (data.top_features && Object.keys(data.top_features).length > 0) {
+            updateFeatures(data.top_features);
+        }
+
+        // Log alerts
+        if (data.is_alert) {
+            addLog(`[ALERT] t=${data.timestamp} Risk=${data.risk_score.toFixed(3)} Subject=${data.subject_id}`, 'alert');
+        }
+    });
+
+    socket.on('info', function(data) {
+        addLog(`[INFO] ${data.message}`, 'info');
+        if (data.threshold) {
+            document.getElementById('stat-threshold').textContent = data.threshold.toFixed(3);
+        }
+    });
+
+    // ─── Gauge Update ───
+    function updateGauge(value, color) {
+        const needle = document.getElementById('gauge-needle');
+        const angle = -90 + (value * 180); // -90 (left) to +90 (right)
+        needle.style.transform = `rotate(${angle}deg)`;
+
+        const gaugeValue = document.getElementById('gauge-value');
+        gaugeValue.textContent = value.toFixed(3);
+        gaugeValue.style.color = color;
+    }
+
+    // ─── Distribution Update ───
+    function updateDistribution() {
+        const bins = [0, 0, 0, 0];
+        recentScores.forEach(s => {
+            if (s < 0.25) bins[0]++;
+            else if (s < 0.5) bins[1]++;
+            else if (s < 0.75) bins[2]++;
+            else bins[3]++;
+        });
+        distChart.data.datasets[0].data = bins;
+        distChart.update('none');
+    }
+
+    // ─── Feature Update ───
+    function updateFeatures(features) {
+        const container = document.getElementById('feature-list');
+        let html = '';
+        const entries = Object.entries(features);
+        const maxVal = Math.max(...entries.map(([,v]) => Math.abs(v)), 0.001);
+
+        entries.forEach(([name, value]) => {
+            const pct = Math.min(100, (Math.abs(value) / maxVal) * 100);
+            const color = value > 0.5 ? 'var(--orange)' : 'var(--accent-blue)';
+            html += `
+                <div class="feature-item">
+                    <span class="feature-name">${name}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="feature-bar">
+                            <div class="feature-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+                        </div>
+                        <span class="stat-value" style="font-size: 0.75em; color: var(--text-secondary); min-width: 50px; text-align: right;">${value.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    // ─── Log ───
+    function addLog(message, type = 'info') {
+        const container = document.getElementById('log-container');
+        const div = document.createElement('div');
+        div.className = type === 'alert' ? 'log-alert' : 'log-info';
+        div.textContent = message;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+
+        // Keep max 100 log entries
+        while (container.children.length > 100) {
+            container.removeChild(container.firstChild);
+        }
+    }
+
+    // ─── Controls ───
+    function startStream() {
+        socket.emit('start');
+        isRunning = true;
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-stop').style.display = 'inline-block';
+    }
+
+    function stopStream() {
+        socket.emit('stop');
+        isRunning = false;
+        document.getElementById('btn-start').style.display = 'inline-block';
+        document.getElementById('btn-stop').style.display = 'none';
+    }
+
+    function resetStream() {
+        socket.emit('reset');
+        isRunning = false;
+        document.getElementById('btn-start').style.display = 'inline-block';
+        document.getElementById('btn-stop').style.display = 'none';
+
+        // Clear charts
+        timelineData.labels = [];
+        timelineData.datasets[0].data = [];
+        timelineData.datasets[1].data = [];
+        timelineChart.update();
+        recentScores.length = 0;
+        updateDistribution();
+    }
+
+    function setSpeed(speed) {
+        socket.emit('set_speed', { speed: parseFloat(speed) });
+    }
+</script>
+</body>
+</html>

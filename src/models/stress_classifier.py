@@ -193,11 +193,14 @@ def train_loso_cv(
     except ValueError:
         overall_auc = np.nan
 
+    # Bootstrap confidence intervals
+    ci = compute_bootstrap_ci(y, all_preds, all_probs)
+
     print(f"\n{'='*50}")
     print(f"LOSO CV Results:")
-    print(f"  Overall Accuracy: {overall_acc:.4f}")
-    print(f"  Overall F1-Score: {overall_f1:.4f}")
-    print(f"  Overall ROC-AUC:  {overall_auc:.4f}")
+    print(f"  Overall Accuracy: {overall_acc:.4f}  95% CI [{ci['accuracy_ci'][0]:.4f}, {ci['accuracy_ci'][1]:.4f}]")
+    print(f"  Overall F1-Score: {overall_f1:.4f}  95% CI [{ci['f1_ci'][0]:.4f}, {ci['f1_ci'][1]:.4f}]")
+    print(f"  Overall ROC-AUC:  {overall_auc:.4f}  95% CI [{ci['auc_ci'][0]:.4f}, {ci['auc_ci'][1]:.4f}]")
     print(f"{'='*50}")
     print(f"\nClassification Report:")
     print(classification_report(y, all_preds, target_names=["Baseline", "Stress"]))
@@ -207,6 +210,7 @@ def train_loso_cv(
         "overall_accuracy": overall_acc,
         "overall_f1": overall_f1,
         "overall_auc": overall_auc,
+        "confidence_intervals": ci,
         "predictions": all_preds,
         "probabilities": all_probs,
         "confusion_matrix": confusion_matrix(y, all_preds),
@@ -321,6 +325,80 @@ def compute_shap_importance(
             "importance": importance,
         }).sort_values("importance", ascending=False)
         return importance_df
+
+
+def compute_bootstrap_ci(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_prob: np.ndarray,
+    n_bootstrap: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> Dict:
+    """
+    Compute bootstrap confidence intervals for classification metrics.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        True labels.
+    y_pred : np.ndarray
+        Predicted labels.
+    y_prob : np.ndarray
+        Predicted probabilities for the positive class.
+    n_bootstrap : int
+        Number of bootstrap resamples.
+    confidence : float
+        Confidence level (default 0.95 for 95% CI).
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    dict
+        Confidence intervals for accuracy, F1, and AUC.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(y_true)
+    alpha = (1 - confidence) / 2
+
+    accs, f1s, aucs = [], [], []
+
+    for _ in range(n_bootstrap):
+        idx = rng.choice(n, size=n, replace=True)
+        y_t = y_true[idx]
+        y_p = y_pred[idx]
+        y_pr = y_prob[idx]
+
+        # Skip degenerate samples (only one class)
+        if len(np.unique(y_t)) < 2:
+            continue
+
+        accs.append(accuracy_score(y_t, y_p))
+        f1s.append(f1_score(y_t, y_p, zero_division=0))
+        try:
+            aucs.append(roc_auc_score(y_t, y_pr))
+        except ValueError:
+            pass
+
+    result = {
+        "accuracy_ci": (
+            float(np.percentile(accs, alpha * 100)),
+            float(np.percentile(accs, (1 - alpha) * 100)),
+        ) if accs else (np.nan, np.nan),
+        "f1_ci": (
+            float(np.percentile(f1s, alpha * 100)),
+            float(np.percentile(f1s, (1 - alpha) * 100)),
+        ) if f1s else (np.nan, np.nan),
+        "auc_ci": (
+            float(np.percentile(aucs, alpha * 100)),
+            float(np.percentile(aucs, (1 - alpha) * 100)),
+        ) if aucs else (np.nan, np.nan),
+        "n_bootstrap": n_bootstrap,
+        "confidence": confidence,
+    }
+
+    return result
 
 
 def save_model(model, filepath: str):

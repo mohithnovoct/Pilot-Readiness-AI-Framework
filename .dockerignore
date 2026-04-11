@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Raw datasets (large, mount as volume instead)
+Data/
+
+# Documents
+Documents/
+
+# IDE
+.vscode/
+.idea/
+.gemini/
+
+# Environment files
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files (will be generated fresh)
+output/pipeline.log*
+
+# Plots (regenerated on demand)
+output/plots/
+
+# Edge exports (regenerated on demand)
+output/edge/

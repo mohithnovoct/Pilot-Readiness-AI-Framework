@@ -1,0 +1,67 @@
+# ============================================================
+# Docker Compose — Pilot Readiness Monitoring Framework
+# ============================================================
+# Usage:
+#   docker compose up demo          # Launch streaming demo
+#   docker compose up pipeline      # Run full pipeline (needs Data/)
+#   docker compose run tests        # Run test suite
+#   docker compose run experiments  # Run model comparison experiments
+# ============================================================
+
+services:
+  # ─── Real-Time Streaming Demo ───
+  demo:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      python streaming_demo.py
+      --host 0.0.0.0
+      --port 5000
+      --speed 1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Full Pipeline (requires Data/ volume) ───
+  pipeline:
+    build: .
+    volumes:
+      - ./Data:/app/Data:ro
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      python main.py
+      --dataset ${DATASET:-wesad}
+      --skip-extraction
+      --skip-training
+    profiles:
+      - pipeline
+
+  # ─── Test Suite ───
+  tests:
+    build: .
+    command: python -m pytest tests/ -v --tb=short
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - test
+
+  # ─── Model Comparison Experiments ───
+  experiments:
+    build: .
+    volumes:
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      python -m src.experiments.model_comparison
+      --dataset ${DATASET:-wesad}
+    profiles:
+      - experiments
