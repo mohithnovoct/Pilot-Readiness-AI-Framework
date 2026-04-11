@@ -248,10 +248,10 @@
             width: 100%;
         }
         .chart-wrapper-timeline {
-            height: 320px;
+            height: 240px; /* Reduced from 320px */
         }
         .chart-wrapper-dist {
-            height: 200px;
+            height: 160px; /* Reduced from 200px */
         }
         .chart-title {
             font-size: 0.9em;
@@ -330,8 +330,8 @@
             .left-panel { flex-direction: row; flex-wrap: wrap; }
             .gauge-card { flex: 1; min-width: 250px; }
             .info-card { flex: 1; min-width: 180px; }
-            .chart-wrapper-timeline { height: 280px; }
-            .chart-wrapper-dist { height: 180px; }
+            .chart-wrapper-timeline { height: 220px; }
+            .chart-wrapper-dist { height: 160px; }
         }
     </style>
 </head>
@@ -513,8 +513,9 @@
                     grid: { color: 'rgba(255,255,255,0.03)' },
                 },
                 y: {
-                    min: 0, max: 1.05,
-                    ticks: { color: '#64748b', stepSize: 0.25 },
+                    min: 0,
+                    suggestedMax: 0.1, /* auto-scale vertically based on data */
+                    ticks: { color: '#64748b' },
                     grid: { color: 'rgba(255,255,255,0.05)' },
                 }
             },
