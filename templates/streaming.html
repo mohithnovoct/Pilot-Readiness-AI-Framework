@@ -120,12 +120,11 @@
         }
         .speed-control select option { background: #1e293b; }
 
-        /* ───── Main Grid ───── */
         .main-grid {
             display: grid;
-            grid-template-columns: 300px 1fr 280px;
-            gap: 20px;
-            min-height: calc(100vh - 140px);
+            grid-template-columns: 280px 1fr 260px;
+            gap: 16px;
+            height: calc(100vh - 120px);
         }
 
         /* ───── Left Panel ───── */
@@ -135,7 +134,7 @@
             background: var(--bg-card);
             backdrop-filter: blur(16px);
             border-radius: 16px;
-            padding: 28px 20px;
+            padding: 20px 16px;
             border: 1px solid var(--border);
             text-align: center;
         }
@@ -152,7 +151,7 @@
             left: 50%;
             transform: translateX(-50%);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 2.2em;
+            font-size: 1.8em;
             font-weight: 700;
         }
 
@@ -160,10 +159,10 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 20px;
+            padding: 6px 16px;
             border-radius: 24px;
             font-weight: 700;
-            font-size: 1em;
+            font-size: 0.85em;
             letter-spacing: 0.06em;
             text-transform: uppercase;
             transition: all 0.3s ease;
@@ -201,23 +200,23 @@
         .info-card {
             background: var(--bg-card);
             backdrop-filter: blur(16px);
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 14px 16px;
             border: 1px solid var(--border);
         }
         .info-card h3 {
             color: var(--text-secondary);
-            font-size: 0.75em;
+            font-size: 0.7em;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .stat-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 0;
+            padding: 3px 0;
             border-bottom: 1px solid rgba(255,255,255,0.03);
         }
         .stat-row:last-child { border-bottom: none; }
@@ -229,14 +228,30 @@
         }
 
         /* ───── Center Panel ───── */
-        .center-panel { display: flex; flex-direction: column; gap: 16px; }
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0; /* prevent flex overflow */
+        }
         .chart-card {
             background: var(--bg-card);
             backdrop-filter: blur(16px);
-            border-radius: 16px;
-            padding: 20px 24px;
+            border-radius: 12px;
+            padding: 16px 20px;
             border: 1px solid var(--border);
-            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .chart-wrapper-timeline {
+            height: 320px;
+        }
+        .chart-wrapper-dist {
+            height: 200px;
         }
         .chart-title {
             font-size: 0.9em;
@@ -256,7 +271,13 @@
         }
 
         /* ───── Right Panel ───── */
-        .right-panel { display: flex; flex-direction: column; gap: 16px; }
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0;
+            overflow: hidden;
+        }
 
         .feature-item {
             display: flex;
@@ -304,10 +325,13 @@
         @media (max-width: 1100px) {
             .main-grid {
                 grid-template-columns: 1fr;
+                height: auto;
             }
             .left-panel { flex-direction: row; flex-wrap: wrap; }
-            .gauge-card { flex: 1; min-width: 280px; }
-            .info-card { flex: 1; min-width: 200px; }
+            .gauge-card { flex: 1; min-width: 250px; }
+            .info-card { flex: 1; min-width: 180px; }
+            .chart-wrapper-timeline { height: 280px; }
+            .chart-wrapper-dist { height: 180px; }
         }
     </style>
 </head>
@@ -409,13 +433,17 @@
 
         <!-- Center Panel: Charts -->
         <div class="center-panel">
-            <div class="chart-card" style="flex: 2;">
+            <div class="chart-card">
                 <div class="chart-title">Risk Score Timeline</div>
-                <canvas id="timeline-chart"></canvas>
+                <div class="chart-wrapper chart-wrapper-timeline">
+                    <canvas id="timeline-chart"></canvas>
+                </div>
             </div>
             <div class="chart-card">
                 <div class="chart-title">Risk Distribution (Last 50)</div>
-                <canvas id="distribution-chart"></canvas>
+                <div class="chart-wrapper chart-wrapper-dist">
+                    <canvas id="distribution-chart"></canvas>
+                </div>
             </div>
         </div>
 
