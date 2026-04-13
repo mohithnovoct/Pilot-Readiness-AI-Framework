@@ -30,7 +30,7 @@ RUN apt-get update && \
 COPY requirements-docker.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements-docker.txt
 
-# ============================================================
+ ============================================================
 # Production stage
 # ============================================================
 FROM python:3.11-slim
