@@ -120,6 +120,41 @@
         }
         .speed-control select option { background: #1e293b; }
 
+        .slider-control {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(30,41,59,0.6); padding: 6px 14px;
+            border-radius: 10px; border: 1px solid var(--border);
+        }
+        .slider-control label { color: var(--text-muted); font-size: 0.8em; font-weight: 500; }
+        
+        /* Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+        }
+        
         .main-grid {
             display: grid;
             grid-template-columns: 280px 1fr 260px;
@@ -344,6 +379,13 @@
             <p>Real-Time Streaming Inference Demo</p>
         </div>
         <div class="header-right">
+            <div class="slider-control">
+                <label>Threshold:</label>
+                <input type="range" id="threshold-slider" min="0.01" max="0.99" step="0.01" value="0.50" 
+                    oninput="document.getElementById('threshold-val').textContent=parseFloat(this.value).toFixed(2)" 
+                    onchange="setThreshold(this.value)" style="width: 80px;">
+                <span id="threshold-val" style="color: var(--accent-purple); font-family: 'JetBrains Mono', monospace; font-size: 0.85em;">0.50</span>
+            </div>
             <div class="speed-control">
                 <label>Speed:</label>
                 <select id="speed-select" onchange="setSpeed(this.value)">
@@ -618,8 +660,13 @@
 
     socket.on('info', function(data) {
         addLog(`[INFO] ${data.message}`, 'info');
-        if (data.threshold) {
+        if (data.threshold !== undefined) {
             document.getElementById('stat-threshold').textContent = data.threshold.toFixed(3);
+            const slider = document.getElementById('threshold-slider');
+            if (slider.value != data.threshold.toFixed(2)) {
+                slider.value = data.threshold.toFixed(2);
+                document.getElementById('threshold-val').textContent = data.threshold.toFixed(2);
+            }
         }
     });
 
@@ -719,6 +766,10 @@
 
     function setSpeed(speed) {
         socket.emit('set_speed', { speed: parseFloat(speed) });
+    }
+
+    function setThreshold(threshold) {
+        socket.emit('set_threshold', { threshold: parseFloat(threshold) });
     }
 </script>
 </body>

@@ -59,6 +59,7 @@ class StreamingEngine:
         self.model = None
         self.features_df = None
         self.threshold = 0.5
+        self.alpha = 0.05  # Default operational scenario
         self._load_resources()
 
     def _load_resources(self):
@@ -132,7 +133,7 @@ class StreamingEngine:
                 baseline_mask = self.features_df["label"].isin([0, 1])
                 baseline_probs = probs[baseline_mask]
                 if len(baseline_probs) > 0:
-                    self.threshold = float(np.quantile(baseline_probs, 0.95))
+                    self.threshold = float(np.quantile(baseline_probs, 1.0 - self.alpha))
         except Exception as e:
             logger.warning(f"Threshold computation failed: {e}")
 
@@ -296,6 +297,16 @@ def handle_speed(data):
     global engine
     engine.speed = float(data.get("speed", 1.0))
     socketio.emit("info", {"message": f"Speed set to {engine.speed}x"})
+
+
+@socketio.on("set_threshold")
+def handle_threshold(data):
+    global engine
+    engine.threshold = float(data.get("threshold", engine.threshold))
+    socketio.emit("info", {
+        "message": f"Threshold manually adjusted to {engine.threshold:.3f}",
+        "threshold": engine.threshold
+    })
 
 
 def main():
