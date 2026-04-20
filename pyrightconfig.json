@@ -1,0 +1,12 @@
+{
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["."]
+    }
+  ],
+  "include": ["src", "tests", "*.py"],
+  "extraPaths": ["."],
+  "pythonVersion": "3.12",
+  "reportMissingImports": "warning"
+}
