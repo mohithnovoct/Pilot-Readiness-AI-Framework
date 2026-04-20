@@ -7,8 +7,10 @@ by replaying pre-computed features through the edge model.
 Displays:
   - Animated risk score gauge (0-1 with color zones)
   - Scrolling risk timeline chart
-  - Current READY/ALERT status with flashing indicator
+  - Multi-level alert status (NOMINAL / CAUTION / WARNING / CRITICAL)
   - Top feature contributions driving current score
+
+Part of the Pilot Readiness AI Framework.
 
 Usage:
     python streaming_demo.py                        # Default: WESAD dataset, 1x speed
@@ -179,6 +181,16 @@ class StreamingEngine:
         is_alert = risk > self.threshold
         true_label = int(row.get("label", 0)) if hasattr(row, "get") else 0
 
+        # Multi-level alert classification
+        if risk > 0.80:
+            alert_level = "CRITICAL"
+        elif risk > 0.60:
+            alert_level = "WARNING"
+        elif risk > 0.40:
+            alert_level = "CAUTION"
+        else:
+            alert_level = "NOMINAL"
+
         self.risk_history.append(risk)
         self.current_index += 1
 
@@ -192,7 +204,8 @@ class StreamingEngine:
             "category": category,
             "color": color,
             "is_alert": is_alert,
-            "decision": "ALERT" if is_alert else "READY",
+            "alert_level": alert_level,
+            "decision": alert_level if is_alert else "READY",
             "threshold": round(self.threshold, 4),
             "subject_id": subject_id,
             "true_label": "Stress" if true_label == 2 else "Baseline" if true_label == 1 else "Unknown",
@@ -338,6 +351,15 @@ def main():
         print(f"Sample prediction: {json.dumps(pred, indent=2)}")
         return
 
+    # Log framework info
+    try:
+        from src.core.framework import PilotReadinessFramework
+        fw = PilotReadinessFramework()
+        components = fw.list_components()
+        fw_status = f"Framework: {sum(len(v) for v in components.values())} plugins"
+    except Exception:
+        fw_status = "Framework: standalone mode"
+
     print(f"\n{'='*50}")
     print(f"  🛫 Pilot Readiness Streaming Demo")
     print(f"{'='*50}")
@@ -345,6 +367,8 @@ def main():
     print(f"  Speed:     {args.speed}x")
     print(f"  Threshold: {engine.threshold:.3f}")
     print(f"  Samples:   {len(engine.features_df) if engine.features_df is not None else 0}")
+    print(f"  Alerts:    Multi-level (NOMINAL → CAUTION → WARNING → CRITICAL)")
+    print(f"  {fw_status}")
     print(f"  URL:       http://localhost:{args.port}")
     print(f"{'='*50}\n")
 

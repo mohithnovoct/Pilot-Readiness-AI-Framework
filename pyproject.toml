@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pilot-readiness"
+version = "1.0.0"
+description = "A Lightweight AI Framework for Pilot Readiness Monitoring Using Stress-Correlated Performance Indicators"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Team 104", email = "team104@dsu.edu.in"},
+]
+keywords = ["pilot", "readiness", "stress", "HRV", "aviation", "AI", "framework"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "lightgbm>=4.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+    "plotly>=5.15",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+streaming = [
+    "flask>=3.0",
+    "flask-socketio>=5.3",
+]
+api = [
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+]
+edge = [
+    "m2cgen>=0.10",
+    "onnx>=1.14",
+    "onnxruntime>=1.15",
+    "skl2onnx>=1.15",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+]
+all = [
+    "pilot-readiness[streaming,api,edge,dev]",
+]
+
+[project.scripts]
+pilot-readiness = "src.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mohithbutta/Pilot-Readiness-AI-Framework"
+Documentation = "https://github.com/mohithbutta/Pilot-Readiness-AI-Framework/tree/main/docs"
+Repository = "https://github.com/mohithbutta/Pilot-Readiness-AI-Framework"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100

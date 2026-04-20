@@ -445,11 +445,30 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO)"
     )
+    parser.add_argument(
+        "--config", type=str, default=None,
+        help="Path to YAML config file (optional — overrides CLI args)"
+    )
 
     args = parser.parse_args()
     setup_logging(args.log_level)
+
+    # Log framework availability
+    try:
+        from src.core.framework import PilotReadinessFramework
+        fw = PilotReadinessFramework()
+        components = fw.list_components()
+        total = sum(len(v) for v in components.values())
+        logger.info("Framework loaded: %d components available", total)
+        for cat, names in components.items():
+            if names:
+                logger.info("  %s: %s", cat, ", ".join(names))
+    except Exception:
+        logger.debug("Framework module not available — running legacy pipeline")
+
     run_pipeline(args)
 
 
 if __name__ == "__main__":
     main()
+

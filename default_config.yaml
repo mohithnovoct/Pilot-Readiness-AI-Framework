@@ -1,0 +1,84 @@
+# ============================================================
+# Pilot Readiness AI Framework — Default Configuration
+# ============================================================
+# This file defines the default settings for all pipeline stages.
+# Override by passing a custom YAML or dict to:
+#   PilotReadinessFramework(config="my_config.yaml")
+# ============================================================
+
+# ── Data ─────────────────────────────────────────────────────
+dataset: wesad            # wesad, swell
+data_dir: Data
+output_dir: output
+
+# ── Sensors ──────────────────────────────────────────────────
+sensors:
+  - name: wesad
+
+# ── Feature Extractors ───────────────────────────────────────
+extractors:
+  - name: hrv
+  - name: performance
+
+# ── Models ───────────────────────────────────────────────────
+models:
+  - name: lightgbm_stress
+  - name: lightgbm_perf
+
+# ── Risk Fusion ──────────────────────────────────────────────
+fusion:
+  name: weighted_linear
+  weights:
+    stress: 0.6
+    performance: 0.4
+
+# ── Decision Threshold ───────────────────────────────────────
+threshold:
+  name: neyman_pearson
+  alpha: 0.05
+  scenario: operational
+
+# ── Multi-Level Alerts ───────────────────────────────────────
+alerts:
+  escalation_window: 3
+  cooldown_seconds: 30.0
+  caution_threshold: 0.40
+  warning_threshold: 0.60
+  critical_threshold: 0.80
+  handlers:
+    - log
+
+# ── Signal Processing Pipeline ───────────────────────────────
+pipeline:
+  window_sec: 60
+  overlap: 0.5
+  per_subject_norm: false
+  valid_labels:
+    - 1
+    - 2
+
+# ── Live Streaming Pipeline ─────────────────────────────────
+live:
+  window_seconds: 60
+  overlap: 0.5
+  buffer_size: 256
+  quality_threshold: 0.5
+  reconnect_attempts: 5
+  reconnect_delay_seconds: 2.0
+
+# ── Per-Pilot Calibration ───────────────────────────────────
+calibration:
+  duration_seconds: 300
+  min_windows: 5
+  profile_dir: output/profiles
+
+# ── Edge Deployment Export ───────────────────────────────────
+edge:
+  export_c: true
+  export_python: true
+  export_onnx: false
+  output_dir: output/edge
+
+# ── Misc ─────────────────────────────────────────────────────
+log_level: INFO
+random_seed: 42
