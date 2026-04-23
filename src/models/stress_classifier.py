@@ -254,14 +254,14 @@ def train_final_model(
         param_grid = {
             "num_leaves": [15, 31, 63],
             "learning_rate": [0.01, 0.05, 0.1],
-            "n_estimators": [100, 200, 300],
-            "max_depth": [-1, 5, 10],
+            "n_estimators": [100, 200],
+            "max_depth": [-1, 5],
         }
 
         base_model = lgb.LGBMClassifier(**params)
         grid = GridSearchCV(
             base_model, param_grid,
-            cv=5, scoring="f1", n_jobs=-1, verbose=0,
+            cv=3, scoring="f1", n_jobs=1, verbose=1,
         )
         grid.fit(X, y)
 

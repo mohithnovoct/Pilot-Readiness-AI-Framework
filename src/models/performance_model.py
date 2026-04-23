@@ -135,8 +135,8 @@ def train_performance_model(
         model = lgb.LGBMRegressor(**base_params)
         grid = GridSearchCV(
             model, param_grid,
-            cv=5, scoring="neg_mean_squared_error",
-            n_jobs=-1, verbose=0,
+            cv=3, scoring="neg_mean_squared_error",
+            n_jobs=1, verbose=1,
         )
         grid.fit(X, y)
 
