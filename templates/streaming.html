@@ -10,20 +10,20 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg-primary: #0a0f1c;
-            --bg-card: rgba(30, 41, 59, 0.85);
-            --bg-card-hover: rgba(51, 65, 85, 0.6);
-            --border: rgba(255, 255, 255, 0.06);
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
+            --bg-primary: #f1f5f9;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-card-hover: rgba(241, 245, 249, 0.8);
+            --border: rgba(0, 0, 0, 0.08);
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
             --text-muted: #64748b;
-            --accent-blue: #3b82f6;
-            --accent-purple: #8b5cf6;
-            --accent-cyan: #06b6d4;
-            --green: #22c55e;
-            --yellow: #eab308;
-            --orange: #f97316;
-            --red: #ef4444;
+            --accent-blue: #2563eb;
+            --accent-purple: #7c3aed;
+            --accent-cyan: #0891b2;
+            --green: #16a34a;
+            --yellow: #ca8a04;
+            --orange: #ea580c;
+            --red: #dc2626;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,9 +41,9 @@
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background:
-                radial-gradient(ellipse at 15% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 90%, rgba(6, 182, 212, 0.04) 0%, transparent 50%);
+                radial-gradient(ellipse at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 90%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
             pointer-events: none;
         }
 
@@ -63,6 +63,7 @@
             padding: 20px 28px;
             background: var(--bg-card);
             backdrop-filter: blur(20px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
             border-radius: 16px;
             border: 1px solid var(--border);
             margin-bottom: 20px;
@@ -101,15 +102,15 @@
         }
         .btn-stop:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,0.4); }
         .btn-reset {
-            background: rgba(100, 116, 139, 0.3);
+            background: rgba(100, 116, 139, 0.12);
             color: var(--text-secondary);
             border: 1px solid var(--border);
         }
-        .btn-reset:hover { background: rgba(100, 116, 139, 0.5); }
+        .btn-reset:hover { background: rgba(100, 116, 139, 0.22); }
 
         .speed-control {
             display: flex; align-items: center; gap: 8px;
-            background: rgba(30,41,59,0.6); padding: 6px 14px;
+            background: rgba(241,245,249,0.8); padding: 6px 14px;
             border-radius: 10px; border: 1px solid var(--border);
         }
         .speed-control label { color: var(--text-muted); font-size: 0.8em; font-weight: 500; }
@@ -118,11 +119,11 @@
             border: none; font-family: 'JetBrains Mono', monospace;
             font-size: 0.85em; cursor: pointer; outline: none;
         }
-        .speed-control select option { background: #1e293b; }
+        .speed-control select option { background: #ffffff; color: #1e293b; }
 
         .slider-control {
             display: flex; align-items: center; gap: 8px;
-            background: rgba(30,41,59,0.6); padding: 6px 14px;
+            background: rgba(241,245,249,0.8); padding: 6px 14px;
             border-radius: 10px; border: 1px solid var(--border);
         }
         .slider-control label { color: var(--text-muted); font-size: 0.8em; font-weight: 500; }
@@ -143,7 +144,7 @@
             background: var(--accent-purple);
             cursor: pointer;
             margin-top: -5px;
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+            box-shadow: 0 0 8px rgba(124, 58, 237, 0.4);
             transition: transform 0.1s;
         }
         input[type=range]::-webkit-slider-thumb:hover {
@@ -153,7 +154,7 @@
             width: 100%;
             height: 4px;
             cursor: pointer;
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(0, 0, 0, 0.12);
             border-radius: 2px;
         }
         
@@ -174,6 +175,7 @@
             padding: 20px 16px;
             border: 1px solid var(--border);
             text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         }
         .gauge-container {
             position: relative;
@@ -240,6 +242,7 @@
             border-radius: 12px;
             padding: 14px 16px;
             border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         }
         .info-card h3 {
             color: var(--text-secondary);
@@ -254,7 +257,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 3px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         }
         .stat-row:last-child { border-bottom: none; }
         .stat-label { color: var(--text-muted); font-size: 0.85em; }
@@ -279,6 +282,7 @@
             border: 1px solid var(--border);
             position: relative;
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         }
         .chart-wrapper {
             position: relative;
@@ -321,7 +325,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         }
         .feature-item:last-child { border-bottom: none; }
         .feature-name {
@@ -332,7 +336,7 @@
         .feature-bar {
             width: 80px;
             height: 6px;
-            background: rgba(255,255,255,0.06);
+            background: rgba(0, 0, 0, 0.06);
             border-radius: 3px;
             overflow: hidden;
         }
@@ -352,7 +356,7 @@
         }
         .log-container::-webkit-scrollbar { width: 4px; }
         .log-container::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
+            background: rgba(0, 0, 0, 0.15);
             border-radius: 2px;
         }
         .log-alert { color: var(--red); }
@@ -412,15 +416,15 @@
                 <div class="gauge-container">
                     <svg viewBox="0 0 200 120" id="gauge-svg">
                         <!-- Background arc -->
-                        <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12" stroke-linecap="round"/>
+                        <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="12" stroke-linecap="round"/>
                         <!-- Colored segments -->
-                        <path d="M 20 110 A 80 80 0 0 1 60 38" fill="none" stroke="#22c55e" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
-                        <path d="M 60 38 A 80 80 0 0 1 100 30" fill="none" stroke="#eab308" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
-                        <path d="M 100 30 A 80 80 0 0 1 140 38" fill="none" stroke="#f97316" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
-                        <path d="M 140 38 A 80 80 0 0 1 180 110" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+                        <path d="M 20 110 A 80 80 0 0 1 60 38" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round" opacity="0.35"/>
+                        <path d="M 60 38 A 80 80 0 0 1 100 30" fill="none" stroke="#ca8a04" stroke-width="12" stroke-linecap="round" opacity="0.35"/>
+                        <path d="M 100 30 A 80 80 0 0 1 140 38" fill="none" stroke="#ea580c" stroke-width="12" stroke-linecap="round" opacity="0.35"/>
+                        <path d="M 140 38 A 80 80 0 0 1 180 110" fill="none" stroke="#dc2626" stroke-width="12" stroke-linecap="round" opacity="0.35"/>
                         <!-- Needle -->
-                        <line id="gauge-needle" x1="100" y1="110" x2="100" y2="40" stroke="white" stroke-width="2.5" stroke-linecap="round" style="transition: transform 0.5s ease; transform-origin: 100px 110px;"/>
-                        <circle cx="100" cy="110" r="5" fill="white"/>
+                        <line id="gauge-needle" x1="100" y1="110" x2="100" y2="40" stroke="#334155" stroke-width="2.5" stroke-linecap="round" style="transition: transform 0.5s ease; transform-origin: 100px 110px;"/>
+                        <circle cx="100" cy="110" r="5" fill="#334155"/>
                     </svg>
                     <div class="gauge-value" id="gauge-value" style="color: #64748b">—</div>
                 </div>
@@ -554,17 +558,17 @@
                 x: {
                     display: true,
                     ticks: { color: '#64748b', maxTicksLimit: 10 },
-                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    grid: { color: 'rgba(0, 0, 0, 0.06)' },
                 },
                 y: {
                     min: 0,
                     suggestedMax: 0.1, /* auto-scale vertically based on data */
                     ticks: { color: '#64748b' },
-                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    grid: { color: 'rgba(0, 0, 0, 0.06)' },
                 }
             },
             plugins: {
-                legend: { display: true, labels: { color: '#94a3b8', font: { size: 11 } } },
+                legend: { display: true, labels: { color: '#475569', font: { size: 11 } } },
             }
         }
     });
@@ -587,12 +591,12 @@
             animation: { duration: 300 },
             scales: {
                 x: {
-                    ticks: { color: '#64748b', font: { size: 10 } },
+                    ticks: { color: '#475569', font: { size: 10 } },
                     grid: { display: false },
                 },
                 y: {
-                    ticks: { color: '#64748b', stepSize: 5 },
-                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    ticks: { color: '#475569', stepSize: 5 },
+                    grid: { color: 'rgba(0, 0, 0, 0.06)' },
                 }
             },
             plugins: { legend: { display: false } },
